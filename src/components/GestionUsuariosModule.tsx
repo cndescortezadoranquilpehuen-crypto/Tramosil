@@ -13,7 +13,9 @@ import {
   Mail,
   User,
   X,
-  Check
+  Check,
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 
 interface Props {
@@ -34,9 +36,21 @@ export const GestionUsuariosModule: React.FC<Props> = ({ usersList, onDataChange
   const [password, setPassword] = useState('');
   const [userRole, setUserRole] = useState<UserRole>('Usuario');
   const [formError, setFormError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Delete modal
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Success toast
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  const showNotification = (msg: string) => {
+    setSuccessToast(msg);
+    setTimeout(() => {
+      setSuccessToast(null);
+    }, 3500);
+  };
 
   // Non-admins cannot access this module
   if (!isAdmin) {
@@ -89,16 +103,25 @@ export const GestionUsuariosModule: React.FC<Props> = ({ usersList, onDataChange
       return;
     }
 
-    await saveUser({
-      id: editingId || undefined,
-      email: email.trim(),
-      name: name.trim(),
-      role: userRole,
-      password: password || undefined,
-    });
+    setIsSaving(true);
+    try {
+      await saveUser({
+        id: editingId || undefined,
+        email: email.trim(),
+        name: name.trim(),
+        role: userRole,
+        password: password || undefined,
+      });
 
-    setModalOpen(false);
-    onDataChanged();
+      setModalOpen(false);
+      showNotification(editingId ? 'Usuario actualizado exitosamente.' : 'Nuevo usuario creado exitosamente.');
+      onDataChanged();
+    } catch (err) {
+      console.error('Error al guardar usuario:', err);
+      setFormError('Ocurrió un error al procesar el usuario. Intente nuevamente.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -107,9 +130,18 @@ export const GestionUsuariosModule: React.FC<Props> = ({ usersList, onDataChange
       setDeletingId(null);
       return;
     }
-    await deleteUser(id);
-    setDeletingId(null);
-    onDataChanged();
+
+    setIsDeleting(true);
+    try {
+      await deleteUser(id);
+      setDeletingId(null);
+      showNotification('Usuario eliminado exitosamente.');
+      onDataChanged();
+    } catch (err) {
+      console.error('Error al eliminar usuario:', err);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const filteredUsers = usersList.filter((u) => {
@@ -136,6 +168,14 @@ export const GestionUsuariosModule: React.FC<Props> = ({ usersList, onDataChange
   return (
     <div className="space-y-6">
       
+      {/* Toast feedback */}
+      {successToast && (
+        <div className="fixed top-20 right-6 z-50 flex items-center gap-2 bg-[#676057] text-white px-4 py-3 rounded-2xl shadow-xl text-xs font-bold border border-[#BCB703] animate-bounce">
+          <CheckCircle2 className="w-4 h-4 text-[#BCB703]" />
+          <span>{successToast}</span>
+        </div>
+      )}
+
       {/* Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#676057]/15">
         <div>
@@ -154,7 +194,7 @@ export const GestionUsuariosModule: React.FC<Props> = ({ usersList, onDataChange
 
         <button
           onClick={handleOpenAdd}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#676057] hover:bg-[#534d45] text-white text-xs font-bold shadow-xs transition self-start sm:self-center active:scale-95"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#676057] hover:bg-[#534d45] text-white text-xs font-bold shadow-xs transition self-start sm:self-center active:scale-95"
         >
           <UserPlus className="w-4 h-4" />
           <span>Crear Nuevo Usuario</span>
@@ -260,6 +300,7 @@ export const GestionUsuariosModule: React.FC<Props> = ({ usersList, onDataChange
                 {editingId ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
               </h4>
               <button
+                type="button"
                 onClick={() => setModalOpen(false)}
                 className="p-1 text-gray-400 hover:text-gray-600 rounded-lg"
               >
@@ -356,16 +397,27 @@ export const GestionUsuariosModule: React.FC<Props> = ({ usersList, onDataChange
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                  disabled={isSaving}
+                  className="px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-[#676057] text-xs font-bold text-white hover:bg-[#534d45] flex items-center gap-1.5"
+                  disabled={isSaving}
+                  className="px-4 py-2 rounded-xl bg-[#676057] text-xs font-bold text-white hover:bg-[#534d45] flex items-center gap-1.5 disabled:opacity-50 transition"
                 >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>{editingId ? 'Guardar Cambios' : 'Crear Usuario'}</span>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{editingId ? 'Guardar Cambios' : 'Crear Usuario'}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -383,16 +435,27 @@ export const GestionUsuariosModule: React.FC<Props> = ({ usersList, onDataChange
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setDeletingId(null)}
-                className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                disabled={isDeleting}
+                className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
+                type="button"
                 onClick={() => handleDelete(deletingId)}
-                className="px-3 py-1.5 rounded-xl bg-red-600 text-xs font-semibold text-white hover:bg-red-700"
+                disabled={isDeleting}
+                className="px-3 py-1.5 rounded-xl bg-red-600 text-xs font-semibold text-white hover:bg-red-700 flex items-center gap-1.5 disabled:opacity-50 transition"
               >
-                Eliminar Cuenta
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Eliminando...</span>
+                  </>
+                ) : (
+                  <span>Eliminar Cuenta</span>
+                )}
               </button>
             </div>
           </div>

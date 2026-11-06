@@ -146,14 +146,9 @@ export async function saveProduccionPersonal(
     createdByName: data.createdByName,
   };
 
-  try {
-    await setDoc(doc(db, COLLECTION_NAME, id), record, { merge: true });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTION_NAME}/${id}`);
-  }
-
+  // 1. Update local cache immediately
   const cached = localStorage.getItem('tramosil_prod_pers_cache');
-  const list: ProduccionPersonal[] = cached ? JSON.parse(cached) : INITIAL_PRODUCCION_PERSONAL;
+  const list: ProduccionPersonal[] = cached ? JSON.parse(cached) : [...INITIAL_PRODUCCION_PERSONAL];
   const idx = list.findIndex((p) => p.id === id);
   if (idx >= 0) {
     list[idx] = record;
@@ -162,20 +157,29 @@ export async function saveProduccionPersonal(
   }
   localStorage.setItem('tramosil_prod_pers_cache', JSON.stringify(list));
 
+  // 2. Sync with Firestore
+  try {
+    await setDoc(doc(db, COLLECTION_NAME, id), record, { merge: true });
+  } catch (err) {
+    console.warn('Warning: Could not sync ProduccionPersonal to Firestore:', err);
+  }
+
   return record;
 }
 
 export async function deleteProduccionPersonal(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, COLLECTION_NAME, id));
-  } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, `${COLLECTION_NAME}/${id}`);
-  }
-
+  // 1. Update local cache immediately
   const cached = localStorage.getItem('tramosil_prod_pers_cache');
   if (cached) {
     const list: ProduccionPersonal[] = JSON.parse(cached);
     const updated = list.filter((p) => p.id !== id);
     localStorage.setItem('tramosil_prod_pers_cache', JSON.stringify(updated));
+  }
+
+  // 2. Sync with Firestore
+  try {
+    await deleteDoc(doc(db, COLLECTION_NAME, id));
+  } catch (err) {
+    console.warn('Warning: Could not delete ProduccionPersonal from Firestore:', err);
   }
 }

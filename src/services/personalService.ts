@@ -117,15 +117,9 @@ export async function savePersonal(data: Omit<Personal, 'id'> & { id?: string })
     fechaIngreso: data.fechaIngreso || new Date().toISOString().split('T')[0],
   };
 
-  try {
-    await setDoc(doc(db, COLLECTION_NAME, id), record, { merge: true });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTION_NAME}/${id}`);
-  }
-
-  // Local storage cache sync
+  // 1. Update local cache immediately
   const cached = localStorage.getItem('tramosil_personal_cache');
-  const list: Personal[] = cached ? JSON.parse(cached) : INITIAL_PERSONAL;
+  const list: Personal[] = cached ? JSON.parse(cached) : [...INITIAL_PERSONAL];
   const idx = list.findIndex((p) => p.id === id);
   if (idx >= 0) {
     list[idx] = record;
@@ -134,20 +128,29 @@ export async function savePersonal(data: Omit<Personal, 'id'> & { id?: string })
   }
   localStorage.setItem('tramosil_personal_cache', JSON.stringify(list));
 
+  // 2. Sync with Firestore
+  try {
+    await setDoc(doc(db, COLLECTION_NAME, id), record, { merge: true });
+  } catch (err) {
+    console.warn('Warning: Could not sync personal to Firestore:', err);
+  }
+
   return record;
 }
 
 export async function deletePersonal(personalId: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, COLLECTION_NAME, personalId));
-  } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, `${COLLECTION_NAME}/${personalId}`);
-  }
-
+  // 1. Update local cache immediately
   const cached = localStorage.getItem('tramosil_personal_cache');
   if (cached) {
     const list: Personal[] = JSON.parse(cached);
     const updated = list.filter((p) => p.id !== personalId);
     localStorage.setItem('tramosil_personal_cache', JSON.stringify(updated));
+  }
+
+  // 2. Sync with Firestore
+  try {
+    await deleteDoc(doc(db, COLLECTION_NAME, personalId));
+  } catch (err) {
+    console.warn('Warning: Could not delete personal from Firestore:', err);
   }
 }
