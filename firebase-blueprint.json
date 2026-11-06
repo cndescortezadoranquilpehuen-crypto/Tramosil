@@ -1,0 +1,171 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account information and role within Tramosil",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the user"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["Usuario", "Supervisor", "Administrador"],
+          "description": "Assigned role determining system access permissions"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp"
+        }
+      },
+      "required": ["email", "name", "role"]
+    },
+    "Personal": {
+      "title": "Personal",
+      "description": "Forestry worker or operator registered in the system",
+      "type": "object",
+      "properties": {
+        "nombre": {
+          "type": "string",
+          "description": "Full name of the operator/worker"
+        },
+        "rut": {
+          "type": "string",
+          "description": "Chilean RUT identification"
+        },
+        "cargo": {
+          "type": "string",
+          "description": "Job title or position in faena"
+        },
+        "activo": {
+          "type": "boolean",
+          "description": "Whether the operator is actively working"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["nombre", "rut"]
+    },
+    "ProduccionDia": {
+      "title": "ProduccionDia",
+      "description": "Daily aggregate production log entry",
+      "type": "object",
+      "properties": {
+        "fecha": {
+          "type": "string",
+          "description": "Manual operational date YYYY-MM-DD"
+        },
+        "fechaHoraIngreso": {
+          "type": "string",
+          "description": "Automatic system registration timestamp"
+        },
+        "especie": {
+          "type": "string",
+          "enum": ["Pino Radiata", "Euca GL", "Euca NT"],
+          "description": "Wood species harvested"
+        },
+        "calidad": {
+          "type": "string",
+          "enum": ["Bosque", "LOG"],
+          "description": "Wood quality classification"
+        },
+        "largoMadera": {
+          "type": "number",
+          "description": "Wood length in meters"
+        },
+        "volumenMR": {
+          "type": "number",
+          "description": "Volume measured in Metro Ruma (MR)"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "User ID who submitted the record"
+        },
+        "createdByName": {
+          "type": "string",
+          "description": "Name of user who submitted the record"
+        }
+      },
+      "required": ["fecha", "especie", "calidad", "volumenMR"]
+    },
+    "ProduccionPersonal": {
+      "title": "ProduccionPersonal",
+      "description": "Individual operator production record",
+      "type": "object",
+      "properties": {
+        "fecha": {
+          "type": "string",
+          "description": "Manual operational date YYYY-MM-DD"
+        },
+        "fechaHoraIngreso": {
+          "type": "string",
+          "description": "Automatic system registration timestamp"
+        },
+        "operadorId": {
+          "type": "string",
+          "description": "ID of the personal record"
+        },
+        "operador": {
+          "type": "string",
+          "description": "Name of the operator from personal module"
+        },
+        "especie": {
+          "type": "string",
+          "enum": ["Pino Radiata", "Euca GL", "Euca NT"],
+          "description": "Wood species harvested"
+        },
+        "calidad": {
+          "type": "string",
+          "enum": ["Bosque", "LOG"],
+          "description": "Wood quality classification"
+        },
+        "largoMadera": {
+          "type": "number",
+          "description": "Wood length in meters"
+        },
+        "volumenMR": {
+          "type": "number",
+          "description": "Volume measured in Metro Ruma (MR)"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "User ID who submitted the record"
+        },
+        "createdByName": {
+          "type": "string",
+          "description": "Name of user who submitted the record"
+        }
+      },
+      "required": ["fecha", "operador", "especie", "calidad", "volumenMR"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Stores user profiles with authentication metadata and role"
+    },
+    "/personal/{personalId}": {
+      "schema": "Personal",
+      "description": "Stores working personal list with RUT and names"
+    },
+    "/produccion_dia/{docId}": {
+      "schema": "ProduccionDia",
+      "description": "Daily production records"
+    },
+    "/produccion_personal/{docId}": {
+      "schema": "ProduccionPersonal",
+      "description": "Operator individual production records"
+    }
+  }
+}

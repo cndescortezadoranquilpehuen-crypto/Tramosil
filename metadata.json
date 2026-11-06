@@ -1,0 +1,6 @@
+{
+  "name": "Tramosil - Gestión de Producción Forestal",
+  "description": "Sistema de gestión y control de producción forestal, producción diaria y personal para Tramosil.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

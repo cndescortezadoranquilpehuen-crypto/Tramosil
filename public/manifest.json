@@ -1,0 +1,33 @@
+{
+  "id": "/",
+  "name": "Tramosil - Gestión de Producción Forestal",
+  "short_name": "Tramosil",
+  "description": "Sistema de gestión y registro de producción forestal, producción diaria, personal y control de faenas Tramosil.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F2EDC9",
+  "theme_color": "#676057",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
