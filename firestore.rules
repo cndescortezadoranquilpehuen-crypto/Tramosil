@@ -26,6 +26,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // App config settings (e.g. meta mensual faena)
+    match /config/{docId} {
+      allow read, write: if true;
+    }
+
     // Test connection doc
     match /test/{docId} {
       allow read, write: if true;

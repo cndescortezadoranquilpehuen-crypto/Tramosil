@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import {
   ProduccionDia,
   ProduccionPersonal,
@@ -9,6 +10,7 @@ import {
 import { useReconciliation } from '../hooks/useReconciliation';
 import { ReconciliationAlertBanner } from './ReconciliationAlertBanner';
 import { DailyProductionColumnChart } from './DailyProductionColumnChart';
+import { subscribeFaenaGoal, saveFaenaGoal } from '../services/configService';
 import {
   BarChart3,
   TrendingUp,
@@ -17,7 +19,11 @@ import {
   Award,
   ArrowUpRight,
   PlusCircle,
-  Activity
+  Activity,
+  Pencil,
+  Check,
+  X,
+  Target
 } from 'lucide-react';
 import { NavTab } from './Header';
 
@@ -34,8 +40,33 @@ export const DashboardModule: React.FC<Props> = ({
   personalList,
   onNavigateTab,
 }) => {
+  const { isAdmin } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [targetAuditDate, setTargetAuditDate] = useState<string | undefined>(undefined);
+  const [faenaMilestoneMR, setFaenaMilestoneMR] = useState<number>(500);
+  const [isEditingGoal, setIsEditingGoal] = useState<boolean>(false);
+  const [inputGoalMR, setInputGoalMR] = useState<string>('500');
+  const [isSavingGoal, setIsSavingGoal] = useState<boolean>(false);
+
+  // Subscribe to real-time manual goal
+  useEffect(() => {
+    const unsub = subscribeFaenaGoal((goal) => {
+      setFaenaMilestoneMR(goal);
+      setInputGoalMR(String(goal));
+    });
+    return () => unsub();
+  }, []);
+
+  const handleSaveGoal = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const val = parseFloat(inputGoalMR);
+    if (!isNaN(val) && val > 0) {
+      setIsSavingGoal(true);
+      await saveFaenaGoal(val);
+      setIsSavingGoal(false);
+      setIsEditingGoal(false);
+    }
+  };
 
   // Filter datasets by month if chosen
   const filteredDia = useMemo(() => {
@@ -132,9 +163,10 @@ export const DashboardModule: React.FC<Props> = ({
     return map;
   }, [filteredDia]);
 
-  // Monthly faena target: set nominal faena milestone e.g. 500 MR or 1.5x total
-  const faenaMilestoneMR = Math.max(500, Math.ceil(totalDiaMR / 200) * 200 + 100);
-  const faenaProgressPct = Math.min(100, Math.round((totalDiaMR / faenaMilestoneMR) * 100));
+  // Monthly faena target: manual goal set by Administrator
+  const faenaProgressPct = faenaMilestoneMR > 0
+    ? Math.round((totalDiaMR / faenaMilestoneMR) * 100)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -265,26 +297,150 @@ export const DashboardModule: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Avance Faena & Dotación */}
-        <div className="bg-[#F2EDC9]/60 rounded-3xl p-5 border border-[#676057]/15 shadow-sm">
+        {/* Avance Faena & Dotación (Meta Manual Configurable por Administrador) */}
+        <div className="bg-[#F2EDC9]/60 rounded-3xl p-5 border border-[#676057]/15 shadow-sm relative group">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#676057]/70">
-              Avance de Faena
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#676057]/70">
+                Avance de Faena
+              </span>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInputGoalMR(String(faenaMilestoneMR));
+                    setIsEditingGoal(true);
+                  }}
+                  className="p-1 rounded-md text-[#676057]/60 hover:text-[#676057] hover:bg-[#676057]/10 transition"
+                  title="Configurar meta del mes (Administrador)"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              )}
+            </div>
             <span className="text-xs font-black text-[#676057]">{faenaProgressPct}%</span>
           </div>
+
           <div className="mt-2.5 w-full bg-gray-200/80 rounded-full h-3 overflow-hidden">
             <div
               className="bg-[#BCB703] h-full rounded-full transition-all duration-700"
-              style={{ width: `${faenaProgressPct}%` }}
+              style={{ width: `${Math.min(100, Math.max(faenaProgressPct, 0))}%` }}
             />
           </div>
+
           <div className="mt-2.5 flex items-center justify-between text-[11px] text-[#676057]">
-            <span>Meta: {faenaMilestoneMR} MR</span>
+            <div className="flex items-center gap-1.5">
+              <span>
+                Meta:{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isAdmin) {
+                      setInputGoalMR(String(faenaMilestoneMR));
+                      setIsEditingGoal(true);
+                    }
+                  }}
+                  className={`${isAdmin ? 'hover:underline cursor-pointer' : 'cursor-default'} font-bold text-[#676057]`}
+                  title={isAdmin ? 'Haz clic para modificar la meta' : undefined}
+                >
+                  {faenaMilestoneMR} MR
+                </button>
+              </span>
+            </div>
             <span className="font-bold text-[#BCB703]">
               {personalList.filter((p) => p.activo !== false).length} Operadores Activos
             </span>
           </div>
+
+          {/* Modal para que el Administrador ingrese la Meta Mensual */}
+          {isEditingGoal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+              <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4 border border-gray-100">
+                <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#BCB703]/20 text-[#676057]">
+                      <Target className="w-4 h-4 text-[#BCB703]" />
+                    </span>
+                    <h4 className="font-bold text-sm text-[#676057]">
+                      Meta Mensual de Producción
+                    </h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingGoal(false)}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded-lg"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  Ingresa manualmente la meta mensual en <strong>Metros Ruma (MR)</strong> para el cálculo del avance de faena.
+                </p>
+
+                <form onSubmit={handleSaveGoal} className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-600 mb-1">
+                      Meta Objetivo del Mes
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={inputGoalMR}
+                        onChange={(e) => setInputGoalMR(e.target.value)}
+                        placeholder="Ej. 500"
+                        required
+                        className="w-full pl-3.5 pr-12 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#BCB703] text-sm font-bold text-[#676057]"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">
+                        MR
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Botones de selección rápida */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    <span className="text-[10px] text-gray-400 font-semibold w-full">Metas frecuentes:</span>
+                    {[300, 500, 800, 1000, 1500, 2000].map((preset) => (
+                      <button
+                        type="button"
+                        key={preset}
+                        onClick={() => setInputGoalMR(String(preset))}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition ${
+                          inputGoalMR === String(preset)
+                            ? 'bg-[#BCB703] text-white border-[#BCB703]'
+                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                        }`}
+                      >
+                        {preset} MR
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingGoal(false)}
+                      disabled={isSavingGoal}
+                      className="px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingGoal}
+                      className="px-4 py-2 rounded-xl bg-[#676057] text-xs font-bold text-white hover:bg-[#534d45] flex items-center gap-1.5 shadow-xs disabled:opacity-50 transition active:scale-95"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{isSavingGoal ? 'Guardando...' : 'Guardar Meta'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

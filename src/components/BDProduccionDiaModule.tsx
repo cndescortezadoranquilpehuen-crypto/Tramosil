@@ -93,6 +93,10 @@ export const BDProduccionDiaModule: React.FC<Props> = ({ data, onDataChanged }) 
       if (filterEspecie && item.especie !== filterEspecie) return false;
 
       return true;
+    }).sort((a, b) => {
+      const dateComp = b.fecha.localeCompare(a.fecha);
+      if (dateComp !== 0) return dateComp;
+      return (b.fechaHoraIngreso || '').localeCompare(a.fechaHoraIngreso || '');
     });
   }, [data, searchTerm, startDate, endDate, filterEspecie]);
 

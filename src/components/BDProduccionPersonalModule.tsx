@@ -105,6 +105,10 @@ export const BDProduccionPersonalModule: React.FC<Props> = ({
       if (filterEspecie && item.especie !== filterEspecie) return false;
 
       return true;
+    }).sort((a, b) => {
+      const dateComp = b.fecha.localeCompare(a.fecha);
+      if (dateComp !== 0) return dateComp;
+      return (b.fechaHoraIngreso || '').localeCompare(a.fechaHoraIngreso || '');
     });
   }, [data, searchTerm, startDate, endDate, filterOperador, filterEspecie]);
 
