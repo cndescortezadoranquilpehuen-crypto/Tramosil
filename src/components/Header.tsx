@@ -32,9 +32,9 @@ interface Props {
 }
 
 export const Header: React.FC<Props> = ({ activeTab, onSelectTab }) => {
-  const { currentUser, role, logout, canManagePersonal, canManageUsers, quickLoginAs } = useAuth();
+  const { currentUser, role, logout, canManagePersonal, canManageUsers } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const navItems: { id: NavTab; label: string; icon: React.ReactNode; badge?: string; restricted?: boolean }[] = [
     {
@@ -153,17 +153,17 @@ export const Header: React.FC<Props> = ({ activeTab, onSelectTab }) => {
             })}
           </nav>
 
-          {/* Right Actions: PWA Install + User Profile & Role Switcher */}
+          {/* Right Actions: PWA Install + User Profile */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* PWA Install Button */}
             <PWAInstallButton compact />
 
-            {/* Quick Demo Switcher / User Role */}
+            {/* User Profile */}
             <div className="relative">
               <button
-                onClick={() => setRoleMenuOpen(!roleMenuOpen)}
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-gray-200 bg-gray-50/80 hover:bg-gray-100 transition text-left"
-                title="Cambiar rol para pruebas o ver usuario"
+                title="Ver perfil de usuario"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#676057]/10 text-[#676057]">
                   <User className="w-4 h-4" />
@@ -183,54 +183,29 @@ export const Header: React.FC<Props> = ({ activeTab, onSelectTab }) => {
                 <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
               </button>
 
-              {/* Dropdown Menu for Testing Roles and Account Details */}
-              {roleMenuOpen && (
+              {/* Dropdown Menu for Account Details */}
+              {userMenuOpen && (
                 <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white p-3 shadow-2xl border border-gray-100 z-50 animate-fade-in text-xs">
                   <div className="pb-2 mb-2 border-b border-gray-100">
                     <span className="block font-bold text-[#676057] text-sm">{currentUser?.name}</span>
                     <span className="text-gray-500 text-[11px] truncate block">{currentUser?.email}</span>
                     <div className="mt-1 flex items-center gap-1.5">
-                      <span className="text-[11px] text-gray-500">Rol activo:</span>
+                      <span className="text-[11px] text-gray-500">Rol asignado:</span>
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${getRoleBadgeStyle(role)}`}>
                         {role}
                       </span>
                     </div>
                   </div>
 
-                  <div className="py-1">
-                    <span className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                      Cambiar rol (Modo Pruebas)
-                    </span>
-                    <div className="space-y-1">
-                      {(['Administrador', 'Supervisor', 'Usuario'] as UserRole[]).map((r) => (
-                        <button
-                          key={r}
-                          onClick={() => {
-                            quickLoginAs(r);
-                            setRoleMenuOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition ${
-                            role === r
-                              ? 'bg-[#F2EDC9] text-[#676057] font-bold'
-                              : 'hover:bg-gray-50 text-gray-700'
-                          }`}
-                        >
-                          <span>{r}</span>
-                          {role === r && <span className="text-[10px] text-[#D37608] font-bold">Activo</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="pt-2 mt-2 border-t border-gray-100">
+                  <div className="pt-1">
                     <button
                       onClick={() => {
-                        setRoleMenuOpen(false);
+                        setUserMenuOpen(false);
                         logout();
                       }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-red-600 hover:bg-red-50 transition font-medium"
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-red-600 hover:bg-red-50 transition font-medium"
                     >
-                      <LogOut className="w-3.5 h-3.5" />
+                      <LogOut className="w-4 h-4" />
                       <span>Cerrar Sesión</span>
                     </button>
                   </div>

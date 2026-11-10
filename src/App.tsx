@@ -26,6 +26,7 @@ import {
   fetchUsers,
   subscribeUsers
 } from './services/userService';
+import { purgeMockData } from './services/cleanupService';
 import {
   ProduccionDia,
   ProduccionPersonal,
@@ -56,6 +57,7 @@ function MainApp() {
 
     const loadInitialData = async () => {
       try {
+        await purgeMockData();
         const [dia, pers, staff, users] = await Promise.all([
           fetchProduccionDia(),
           fetchProduccionPersonal(),

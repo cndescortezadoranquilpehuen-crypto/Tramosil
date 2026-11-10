@@ -6,7 +6,7 @@ import {
   User as FirebaseUser,
   createUserWithEmailAndPassword
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { UserAccount, UserRole } from '../types';
 
@@ -17,7 +17,6 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   register: (email: string, pass: string, name: string, role?: UserRole) => Promise<{ success: boolean; error?: string }>;
-  quickLoginAs: (role: UserRole) => void;
   logout: () => Promise<void>;
   isAdmin: boolean;
   isSupervisor: boolean;
@@ -32,30 +31,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Bootstrapped administrator from prompt
 const BOOTSTRAP_ADMIN_EMAIL = 'cndescortezadoranquil.pehuen@gmail.com';
 
-const ROLE_PRESETS: Record<UserRole, UserAccount> = {
-  Administrador: {
-    id: 'admin-tramosil-1',
-    email: BOOTSTRAP_ADMIN_EMAIL,
-    name: 'Administrador Tramosil',
-    role: 'Administrador',
-    createdAt: new Date().toISOString(),
-  },
-  Supervisor: {
-    id: 'supervisor-tramosil-2',
-    email: 'supervisor@tramosil.cl',
-    name: 'Carlos Mendoza',
-    role: 'Supervisor',
-    createdAt: new Date().toISOString(),
-  },
-  Usuario: {
-    id: 'usuario-tramosil-3',
-    email: 'operador@tramosil.cl',
-    name: 'Juan Pérez',
-    role: 'Usuario',
-    createdAt: new Date().toISOString(),
-  },
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -66,7 +41,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedUser = localStorage.getItem('tramosil_current_user');
     if (savedUser) {
       try {
-        setCurrentUser(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedUser);
+        // Exclude legacy mock users
+        if (parsed.name !== 'Juan Pérez' && parsed.name !== 'Carlos Mendoza') {
+          setCurrentUser(parsed);
+        } else {
+          localStorage.removeItem('tramosil_current_user');
+        }
       } catch (e) {
         console.warn('Failed parsing cached user', e);
       }
@@ -104,7 +85,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     });
 
-    // If no firebaseUser after 1.2s, finish loading
     const timer = setTimeout(() => {
       setLoading(false);
     }, 1200);
@@ -120,12 +100,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
 
     try {
-      // Try Firebase Auth first
+      // 1. Try Firebase Auth first
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, pass);
       const fbUser = userCredential.user;
-      
-      // Get role
-      let role: UserRole = cleanEmail === BOOTSTRAP_ADMIN_EMAIL ? 'Administrador' : 'Usuario';
+
+      let role: UserRole = cleanEmail === BOOTSTRAP_ADMIN_EMAIL.toLowerCase() ? 'Administrador' : 'Usuario';
       let name = cleanEmail.split('@')[0];
       try {
         const snap = await getDoc(doc(db, 'users', fbUser.uid));
@@ -150,26 +129,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
       return { success: true };
     } catch (fbErr: unknown) {
-      const fbError = fbErr as { code?: string; message?: string };
-      console.warn('Firebase signIn error:', fbError.code, fbError.message);
+      console.warn('Firebase Auth standard login note:', fbErr);
 
-      // If Firebase Auth is not yet configured with email/pass in console, check predefined accounts or stored users
-      const isKnownAdmin = cleanEmail === BOOTSTRAP_ADMIN_EMAIL || cleanEmail.includes('admin');
-      const isKnownSupervisor = cleanEmail.includes('supervisor');
-      const matchedRole: UserRole = isKnownAdmin ? 'Administrador' : isKnownSupervisor ? 'Supervisor' : 'Usuario';
+      // 2. Query registered users in Firestore or local cache
+      let matchedUser: UserAccount | null = null;
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        const found = snap.docs
+          .map((d) => ({ id: d.id, ...(d.data() as Omit<UserAccount, 'id'>) }))
+          .find((u) => u.email.toLowerCase() === cleanEmail);
+        if (found) matchedUser = found;
+      } catch (err) {
+        console.warn('Could not query users collection in Firestore:', err);
+      }
 
-      const account: UserAccount = {
-        id: `usr_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
-        email: cleanEmail,
-        name: cleanEmail.split('@')[0].toUpperCase(),
-        role: matchedRole,
-        createdAt: new Date().toISOString(),
-      };
+      if (!matchedUser) {
+        const cachedStr = localStorage.getItem('tramosil_users_cache');
+        if (cachedStr) {
+          try {
+            const list: UserAccount[] = JSON.parse(cachedStr);
+            const found = list.find((u) => u.email.toLowerCase() === cleanEmail);
+            if (found) matchedUser = found;
+          } catch {
+            // ignore
+          }
+        }
+      }
 
-      setCurrentUser(account);
-      localStorage.setItem('tramosil_current_user', JSON.stringify(account));
+      // Check for bootstrap admin
+      if (cleanEmail === BOOTSTRAP_ADMIN_EMAIL.toLowerCase()) {
+        const adminAccount: UserAccount = {
+          id: matchedUser ? matchedUser.id : 'admin-tramosil-1',
+          email: BOOTSTRAP_ADMIN_EMAIL,
+          name: matchedUser ? matchedUser.name : 'Administrador Tramosil',
+          role: 'Administrador',
+          createdAt: new Date().toISOString(),
+        };
+        setCurrentUser(adminAccount);
+        localStorage.setItem('tramosil_current_user', JSON.stringify(adminAccount));
+        setLoading(false);
+        return { success: true };
+      }
+
+      // If user is registered in the system (e.g. Diego Silva, Rodolfo Ortiz, etc.)
+      if (matchedUser) {
+        // Exclude legacy mock names
+        if (matchedUser.name === 'Juan Pérez' || matchedUser.name === 'Carlos Mendoza') {
+          setLoading(false);
+          return {
+            success: false,
+            error: 'Cuenta de prueba desactivada. Ingrese con sus credenciales autorizadas.',
+          };
+        }
+
+        setCurrentUser(matchedUser);
+        localStorage.setItem('tramosil_current_user', JSON.stringify(matchedUser));
+        setLoading(false);
+        return { success: true };
+      }
+
       setLoading(false);
-      return { success: true };
+      return {
+        success: false,
+        error: 'El correo electrónico no se encuentra registrado en el sistema. Contacte al Administrador.',
+      };
     }
   };
 
@@ -185,7 +208,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Firebase user creation note:', authErr);
       }
 
-      const isBootAdmin = cleanEmail === BOOTSTRAP_ADMIN_EMAIL;
+      const isBootAdmin = cleanEmail === BOOTSTRAP_ADMIN_EMAIL.toLowerCase();
       const role: UserRole = isBootAdmin ? 'Administrador' : desiredRole;
 
       const account: UserAccount = {
@@ -211,12 +234,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const e = err as Error;
       return { success: false, error: e.message || 'Error al registrar usuario' };
     }
-  };
-
-  const quickLoginAs = (role: UserRole) => {
-    const preset = ROLE_PRESETS[role];
-    setCurrentUser(preset);
-    localStorage.setItem('tramosil_current_user', JSON.stringify(preset));
   };
 
   const logout = async () => {
@@ -248,7 +265,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         login,
         register,
-        quickLoginAs,
         logout,
         isAdmin,
         isSupervisor,

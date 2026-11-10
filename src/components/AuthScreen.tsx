@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Mail, User, ShieldCheck, ArrowRight, TreePine, CheckCircle } from 'lucide-react';
+import { Lock, Mail, ArrowRight, TreePine, ShieldCheck } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
 export const AuthScreen: React.FC = () => {
-  const { login, quickLoginAs } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -60,7 +60,7 @@ export const AuthScreen: React.FC = () => {
               Iniciar Sesión
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Ingresa tus credenciales para acceder al sistema
+              Ingresa tus credenciales autorizadas para acceder al sistema
             </p>
           </div>
 
@@ -83,7 +83,7 @@ export const AuthScreen: React.FC = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="operador@tramosil.cl"
+                  placeholder="ejemplo@tramosil.cl"
                   required
                   className="block w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#BCB703] focus:border-[#BCB703] transition"
                 />
@@ -114,70 +114,18 @@ export const AuthScreen: React.FC = () => {
               disabled={isSubmitting}
               className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-white bg-[#676057] hover:bg-[#534d45] focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-[#676057] shadow-md transition disabled:opacity-50"
             >
-              <span>{isSubmitting ? 'Verificando...' : 'Entrar al Sistema'}</span>
+              <span>{isSubmitting ? 'Verificando credenciales...' : 'Entrar al Sistema'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
 
-          {/* Quick Access Preset Buttons for Testing */}
-          <div className="mt-8 pt-6 border-t border-gray-100">
-            <span className="block text-center text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">
-              Acceso Rápido para Pruebas
-            </span>
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => quickLoginAs('Administrador')}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl border border-[#D37608]/30 bg-orange-50/50 hover:bg-orange-50 text-left transition text-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-[#D37608]" />
-                  <div>
-                    <span className="font-bold text-[#676057] block">Administrador</span>
-                    <span className="text-[11px] text-gray-500">Acceso total (Edición, Eliminación, Usuarios, Personal)</span>
-                  </div>
-                </div>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-[#D37608] text-white">
-                  Admin
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => quickLoginAs('Supervisor')}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl border border-[#BCB703]/40 bg-lime-50/50 hover:bg-lime-50 text-left transition text-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-[#BCB703]" />
-                  <div>
-                    <span className="font-bold text-[#676057] block">Supervisor</span>
-                    <span className="text-[11px] text-gray-500">Ingreso, edición y eliminación de producción y personal</span>
-                  </div>
-                </div>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-[#BCB703] text-white">
-                  Supervisor
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => quickLoginAs('Usuario')}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-left transition text-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-[#676057]" />
-                  <div>
-                    <span className="font-bold text-[#676057] block">Usuario (Operador)</span>
-                    <span className="text-[11px] text-gray-500">Ingreso de producción (sin permiso de eliminación)</span>
-                  </div>
-                </div>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-[#676057] text-white">
-                  Operador
-                </span>
-              </button>
+          <div className="mt-8 pt-6 border-t border-gray-100 text-center space-y-2">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#676057]/80 bg-[#F2EDC9]/50 px-3 py-1 rounded-full">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#BCB703]" />
+              <span>Acceso Exclusivo Personal Autorizado</span>
             </div>
-            <p className="mt-4 text-center text-[11px] text-gray-400">
-              Las cuentas de usuario son gestionadas por el Administrador en el módulo de Gestión de Usuarios.
+            <p className="text-[11px] text-gray-400">
+              Las cuentas de usuario y niveles de acceso son administrados directamente en el módulo de Gestión de Usuarios.
             </p>
           </div>
         </div>

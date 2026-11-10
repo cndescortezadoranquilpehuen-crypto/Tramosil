@@ -11,6 +11,9 @@ import { UserAccount, UserRole } from '../types';
 
 const COLLECTION_NAME = 'users';
 
+const MOCK_USER_IDS = ['supervisor-tramosil-2', 'usuario-tramosil-3'];
+const MOCK_NAMES = ['Carlos Mendoza', 'Juan Pérez'];
+
 const DEFAULT_USERS: UserAccount[] = [
   {
     id: 'admin-tramosil-1',
@@ -19,27 +22,15 @@ const DEFAULT_USERS: UserAccount[] = [
     role: 'Administrador',
     createdAt: new Date().toISOString(),
   },
-  {
-    id: 'supervisor-tramosil-2',
-    email: 'supervisor@tramosil.cl',
-    name: 'Carlos Mendoza',
-    role: 'Supervisor',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'usuario-tramosil-3',
-    email: 'operador@tramosil.cl',
-    name: 'Juan Pérez',
-    role: 'Usuario',
-    createdAt: new Date().toISOString(),
-  },
 ];
 
 export async function fetchUsers(): Promise<UserAccount[]> {
   try {
     const snap = await getDocs(collection(db, COLLECTION_NAME));
     if (!snap.empty) {
-      const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<UserAccount, 'id'>) }));
+      const list = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<UserAccount, 'id'>) }))
+        .filter((u) => !MOCK_USER_IDS.includes(u.id) && !MOCK_NAMES.includes(u.name));
       localStorage.setItem('tramosil_users_cache', JSON.stringify(list));
       return list;
     }
@@ -51,7 +42,8 @@ export async function fetchUsers(): Promise<UserAccount[]> {
   const cached = localStorage.getItem('tramosil_users_cache');
   if (cached) {
     try {
-      return JSON.parse(cached);
+      const parsed: UserAccount[] = JSON.parse(cached);
+      return parsed.filter((u) => !MOCK_USER_IDS.includes(u.id) && !MOCK_NAMES.includes(u.name));
     } catch {
       // fallback
     }
@@ -64,7 +56,8 @@ export function subscribeUsers(callback: (users: UserAccount[]) => void) {
   const cached = localStorage.getItem('tramosil_users_cache');
   if (cached) {
     try {
-      callback(JSON.parse(cached));
+      const parsed: UserAccount[] = JSON.parse(cached);
+      callback(parsed.filter((u) => !MOCK_USER_IDS.includes(u.id) && !MOCK_NAMES.includes(u.name)));
     } catch {
       callback(DEFAULT_USERS);
     }
@@ -77,7 +70,8 @@ export function subscribeUsers(callback: (users: UserAccount[]) => void) {
     const current = localStorage.getItem('tramosil_users_cache');
     if (current) {
       try {
-        callback(JSON.parse(current));
+        const parsed: UserAccount[] = JSON.parse(current);
+        callback(parsed.filter((u) => !MOCK_USER_IDS.includes(u.id) && !MOCK_NAMES.includes(u.name)));
       } catch {
         // ignore
       }
@@ -92,10 +86,12 @@ export function subscribeUsers(callback: (users: UserAccount[]) => void) {
       collection(db, COLLECTION_NAME),
       (snap) => {
         if (!snap.empty) {
-          const list = snap.docs.map((d) => ({
-            id: d.id,
-            ...(d.data() as Omit<UserAccount, 'id'>),
-          }));
+          const list = snap.docs
+            .map((d) => ({
+              id: d.id,
+              ...(d.data() as Omit<UserAccount, 'id'>),
+            }))
+            .filter((u) => !MOCK_USER_IDS.includes(u.id) && !MOCK_NAMES.includes(u.name));
           localStorage.setItem('tramosil_users_cache', JSON.stringify(list));
           callback(list);
         }
