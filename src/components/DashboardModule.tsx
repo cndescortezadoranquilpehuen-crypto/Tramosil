@@ -23,7 +23,8 @@ import {
   Pencil,
   Check,
   X,
-  Target
+  Target,
+  Ruler
 } from 'lucide-react';
 import { NavTab } from './Header';
 
@@ -162,6 +163,56 @@ export const DashboardModule: React.FC<Props> = ({
     });
     return map;
   }, [filteredDia]);
+
+  // Producción y Distribución por Largo de la Madera
+  const woodLengthStats = useMemo(() => {
+    const map = new Map<number, { totalMR: number; count: number }>();
+
+    filteredDia.forEach((d) => {
+      const length = Number(d.largoMadera) || 0;
+      if (length > 0) {
+        const existing = map.get(length) || { totalMR: 0, count: 0 };
+        map.set(length, {
+          totalMR: existing.totalMR + (Number(d.volumenMR) || 0),
+          count: existing.count + 1,
+        });
+      }
+    });
+
+    // Si la BD diaria no tiene largo registrado o está vacía, se complementa con BD Personal
+    if (map.size === 0) {
+      filteredPersonal.forEach((p) => {
+        const length = Number(p.largoMadera) || 0;
+        if (length > 0) {
+          const existing = map.get(length) || { totalMR: 0, count: 0 };
+          map.set(length, {
+            totalMR: existing.totalMR + (Number(p.volumenMR) || 0),
+            count: existing.count + 1,
+          });
+        }
+      });
+    }
+
+    const totalMRAll = Array.from(map.values()).reduce((sum, item) => sum + item.totalMR, 0);
+
+    const list = Array.from(map.entries())
+      .map(([largo, item]) => ({
+        largo,
+        label: `${largo.toFixed(2).replace(/\.?0+$/, '')} m`,
+        totalMR: Math.round(item.totalMR * 100) / 100,
+        count: item.count,
+        percentage: totalMRAll > 0 ? (item.totalMR / totalMRAll) * 100 : 0,
+      }))
+      .sort((a, b) => b.totalMR - a.totalMR);
+
+    const predominant = list.length > 0 ? list[0] : null;
+
+    return {
+      list,
+      totalMRAll,
+      predominant,
+    };
+  }, [filteredDia, filteredPersonal]);
 
   // Monthly faena target: manual goal set by Administrator
   const faenaProgressPct = faenaMilestoneMR > 0
@@ -508,66 +559,150 @@ export const DashboardModule: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Right Column: Especies y Calidad */}
+        {/* Right Column: Especies, Calidad y Largo de Madera */}
         <div className="lg:col-span-6 space-y-6">
-          {/* Distribución por Especie */}
-          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#676057]/10 shadow-sm space-y-3">
-            <h4 className="text-sm font-bold text-[#676057] flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#BCB703]" />
-              Distribución por Especie de Madera
-            </h4>
-            <div className="space-y-3">
-              {(['Pino Radiata', 'Euca GL', 'Euca NT'] as EspecieMadera[]).map((esp) => {
-                const val = speciesData[esp] || 0;
-                const pct = totalDiaMR > 0 ? (val / totalDiaMR) * 100 : 0;
-                return (
-                  <div key={esp} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-[#676057]">{esp}</span>
-                      <span className="font-bold text-gray-700">
-                        {val.toFixed(2)} MR ({pct.toFixed(1)}%)
-                      </span>
+          
+          {/* Especie y Calidad en sub-grid responsivo */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
+            {/* Distribución por Especie */}
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#676057]/10 shadow-sm space-y-3">
+              <h4 className="text-sm font-bold text-[#676057] flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#BCB703]" />
+                Por Especie
+              </h4>
+              <div className="space-y-2.5">
+                {(['Pino Radiata', 'Euca GL', 'Euca NT'] as EspecieMadera[]).map((esp) => {
+                  const val = speciesData[esp] || 0;
+                  const pct = totalDiaMR > 0 ? (val / totalDiaMR) * 100 : 0;
+                  return (
+                    <div key={esp} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-[#676057] truncate max-w-[110px]">{esp}</span>
+                        <span className="font-bold text-gray-700 text-[11px]">
+                          {val.toFixed(1)} MR ({pct.toFixed(0)}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-[#BCB703] h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.max(pct, 1)}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                      <div
-                        className="bg-[#BCB703] h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.max(pct, 1)}%` }}
-                      />
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Distribución por Calidad */}
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#676057]/10 shadow-sm space-y-3">
+              <h4 className="text-sm font-bold text-[#676057] flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#D37608]" />
+                Por Calidad
+              </h4>
+              <div className="space-y-2.5">
+                {(['Bosque', 'LOG'] as CalidadMadera[]).map((cal) => {
+                  const val = qualityData[cal] || 0;
+                  const pct = totalDiaMR > 0 ? (val / totalDiaMR) * 100 : 0;
+                  return (
+                    <div key={cal} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-[#676057]">Calidad {cal}</span>
+                        <span className="font-bold text-gray-700 text-[11px]">
+                          {val.toFixed(1)} MR ({pct.toFixed(0)}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-[#D37608] h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.max(pct, 1)}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Distribución por Calidad */}
-          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#676057]/10 shadow-sm space-y-3">
-            <h4 className="text-sm font-bold text-[#676057] flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#D37608]" />
-              Distribución por Calidad de Madera
-            </h4>
-            <div className="space-y-3">
-              {(['Bosque', 'LOG'] as CalidadMadera[]).map((cal) => {
-                const val = qualityData[cal] || 0;
-                const pct = totalDiaMR > 0 ? (val / totalDiaMR) * 100 : 0;
-                return (
-                  <div key={cal} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-[#676057]">Calidad {cal}</span>
-                      <span className="font-bold text-gray-700">
-                        {val.toFixed(2)} MR ({pct.toFixed(1)}%)
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                      <div
-                        className="bg-[#D37608] h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.max(pct, 1)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Gráfico e Indicadores de Producción por Largo de Madera */}
+          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#676057]/10 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-sm font-bold text-[#676057] flex items-center gap-2">
+                  <Ruler className="w-4 h-4 text-[#D37608]" />
+                  Producción por Largo de la Madera
+                </h4>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Volumen en MR y proporción de madera clasificada según longitud.
+                </p>
+              </div>
+
+              {woodLengthStats.predominant && (
+                <div className="flex items-center gap-1.5 self-start sm:self-center bg-[#F2EDC9]/80 px-2.5 py-1 rounded-xl border border-[#676057]/15">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Predominante:</span>
+                  <span className="text-xs font-black text-[#D37608]">
+                    {woodLengthStats.predominant.label}
+                  </span>
+                  <span className="text-[10px] font-bold text-[#676057]">
+                    ({woodLengthStats.predominant.percentage.toFixed(0)}%)
+                  </span>
+                </div>
+              )}
             </div>
+
+            {woodLengthStats.list.length === 0 ? (
+              <div className="py-8 text-center text-xs text-gray-400">
+                No hay registros con medidas de largo aún en las bases de datos.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {woodLengthStats.list.map((item, idx) => {
+                  const barColor = idx % 2 === 0 ? 'bg-[#BCB703]' : 'bg-[#D37608]';
+                  const textColor = idx % 2 === 0 ? 'text-[#858102]' : 'text-[#D37608]';
+                  return (
+                    <div key={item.largo} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-md bg-[#676057]/10 font-black text-[#676057] text-[11px]">
+                            {item.label}
+                          </span>
+                          <span className="text-[11px] text-gray-400">
+                            {item.count} registro{item.count !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <span className={`text-xs ${textColor}`}>
+                            {item.totalMR.toFixed(2)} MR
+                          </span>
+                          <span className="text-[11px] text-gray-400">
+                            ({item.percentage.toFixed(1)}%)
+                          </span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                        <div
+                          className={`${barColor} h-full rounded-full transition-all duration-500`}
+                          style={{ width: `${Math.max(item.percentage, 2)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Resumen footer */}
+                <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500 font-medium">
+                  <span>{woodLengthStats.list.length} medida(s) registrada(s)</span>
+                  <span>
+                    Total medido:{' '}
+                    <strong className="text-[#676057] font-bold">
+                      {woodLengthStats.totalMRAll.toFixed(2)} MR
+                    </strong>
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

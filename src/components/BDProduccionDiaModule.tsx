@@ -105,6 +105,21 @@ export const BDProduccionDiaModule: React.FC<Props> = ({ data, onDataChanged }) 
     return filteredData.reduce((acc, curr) => acc + (Number(curr.volumenMR) || 0), 0);
   }, [filteredData]);
 
+  // Fechas únicas registradas en los datos filtrados
+  const uniqueDatesCount = useMemo(() => {
+    const dates = new Set<string>();
+    filteredData.forEach((item) => {
+      if (item.fecha) dates.add(item.fecha);
+    });
+    return dates.size;
+  }, [filteredData]);
+
+  // Promedio por fecha: suma total de producción dividida entre las fechas/días con registros
+  const promedioPorFecha = useMemo(() => {
+    if (uniqueDatesCount === 0) return 0;
+    return totalVolume / uniqueDatesCount;
+  }, [totalVolume, uniqueDatesCount]);
+
   // Trigger Edit
   const handleOpenEdit = (rec: ProduccionDia) => {
     setEditingRecord(rec);
@@ -311,11 +326,24 @@ export const BDProduccionDiaModule: React.FC<Props> = ({ data, onDataChanged }) 
           <span className="text-xl font-black text-[#D37608]">{totalVolume.toFixed(2)} MR</span>
         </div>
         <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-2xs col-span-2 sm:col-span-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block">
-            Promedio por Registro
-          </span>
-          <span className="text-xl font-black text-[#BCB703]">
-            {filteredData.length > 0 ? (totalVolume / filteredData.length).toFixed(2) : '0.00'} MR
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block">
+              Promedio por Fecha
+            </span>
+            {uniqueDatesCount > 0 && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#BCB703]/15 text-[#858102]">
+                {uniqueDatesCount} {uniqueDatesCount === 1 ? 'día' : 'días'}
+              </span>
+            )}
+          </div>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-xl font-black text-[#BCB703]">
+              {promedioPorFecha.toFixed(2)}
+            </span>
+            <span className="text-xs font-bold text-gray-500">MR / día</span>
+          </div>
+          <span className="text-[10px] text-gray-400 block mt-0.5">
+            Suma total del día / {uniqueDatesCount} fecha(s)
           </span>
         </div>
       </div>

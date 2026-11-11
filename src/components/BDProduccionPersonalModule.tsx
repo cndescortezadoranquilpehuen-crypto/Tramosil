@@ -116,6 +116,35 @@ export const BDProduccionPersonalModule: React.FC<Props> = ({
     return filteredData.reduce((acc, curr) => acc + (Number(curr.volumenMR) || 0), 0);
   }, [filteredData]);
 
+  // Fechas únicas registradas en los datos filtrados
+  const uniqueDatesCount = useMemo(() => {
+    const dates = new Set<string>();
+    filteredData.forEach((item) => {
+      if (item.fecha) dates.add(item.fecha);
+    });
+    return dates.size;
+  }, [filteredData]);
+
+  // Jornadas de trabajadores (combinación única de operador + fecha)
+  // Cada jornada representa la producción total acumulada de 1 trabajador en 1 día específico
+  const totalWorkerDays = useMemo(() => {
+    const workerDaysSet = new Set<string>();
+    filteredData.forEach((item) => {
+      const op = item.operador || 'Sin Operador';
+      const f = item.fecha || '';
+      if (f) {
+        workerDaysSet.add(`${op}___${f}`);
+      }
+    });
+    return workerDaysSet.size;
+  }, [filteredData]);
+
+  // Promedio MR de producción de cada trabajador por día o fecha
+  const promedioTrabajadorPorDia = useMemo(() => {
+    if (totalWorkerDays === 0) return 0;
+    return totalVolume / totalWorkerDays;
+  }, [totalVolume, totalWorkerDays]);
+
   const handleOpenEdit = (rec: ProduccionPersonal) => {
     setEditingRecord(rec);
     setEditFecha(rec.fecha);
@@ -344,11 +373,26 @@ export const BDProduccionPersonalModule: React.FC<Props> = ({
           <span className="text-xl font-black text-[#BCB703]">{totalVolume.toFixed(2)} MR</span>
         </div>
         <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-2xs col-span-2 sm:col-span-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block">
-            Promedio por Operador
-          </span>
-          <span className="text-xl font-black text-[#676057]">
-            {filteredData.length > 0 ? (totalVolume / filteredData.length).toFixed(2) : '0.00'} MR
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block truncate">
+              {filterOperador ? `Promedio Diario (${filterOperador})` : 'Promedio Trabajador / Día'}
+            </span>
+            {totalWorkerDays > 0 && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#BCB703]/15 text-[#858102] whitespace-nowrap">
+                {totalWorkerDays} {totalWorkerDays === 1 ? 'jornada op.' : 'jornadas op.'}
+              </span>
+            )}
+          </div>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-xl font-black text-[#676057]">
+              {promedioTrabajadorPorDia.toFixed(2)}
+            </span>
+            <span className="text-xs font-bold text-gray-500">MR / día</span>
+          </div>
+          <span className="text-[10px] text-gray-400 block mt-0.5 truncate">
+            {filterOperador
+              ? `Promedio diario del operador en ${totalWorkerDays} jornada(s)`
+              : `Promedio por trabajador en cada día (${totalWorkerDays} jornadas acumuladas en ${uniqueDatesCount} fechas)`}
           </span>
         </div>
       </div>
